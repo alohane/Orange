@@ -85,6 +85,9 @@ dart run build_runner build --delete-conflicting-outputs
 
 # 返回项目根目录
 cd ../../..
+
+# 再次运行代码生成器
+dart run build_runner build --delete-conflicting-outputs
 ```
 
 > 💡 **为什么需要这一步？**  
