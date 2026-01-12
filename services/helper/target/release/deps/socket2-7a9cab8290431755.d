@@ -1,0 +1,11 @@
+C:\Users\coppy\Desktop\Orange\services\helper\target\release\deps\socket2-7a9cab8290431755.d: C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\lib.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sockaddr.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\socket.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sockref.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sys\windows.rs
+
+C:\Users\coppy\Desktop\Orange\services\helper\target\release\deps\libsocket2-7a9cab8290431755.rlib: C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\lib.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sockaddr.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\socket.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sockref.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sys\windows.rs
+
+C:\Users\coppy\Desktop\Orange\services\helper\target\release\deps\libsocket2-7a9cab8290431755.rmeta: C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\lib.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sockaddr.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\socket.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sockref.rs C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sys\windows.rs
+
+C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\lib.rs:
+C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sockaddr.rs:
+C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\socket.rs:
+C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sockref.rs:
+C:\Users\coppy\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.5.8\src\sys\windows.rs:
