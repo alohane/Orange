@@ -307,23 +307,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          TextButton(
-                            onPressed: _navigateToForgotPassword,
-                            child: Text(
-                              appLocalizations.xboardForgotPassword,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _navigateToRegister,
-                            child: Text(
-                              appLocalizations.xboardRegister,
-                            ),
-                          ),
-                        ],
-                      ),
+                      // Row(
+                      //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      //   children: [
+                      //     TextButton(
+                      //       onPressed: _navigateToForgotPassword,
+                      //       child: Text(
+                      //         appLocalizations.xboardForgotPassword,
+                      //       ),
+                      //     ),
+                      //     TextButton(
+                      //       onPressed: _navigateToRegister,
+                      //       child: Text(
+                      //         appLocalizations.xboardRegister,
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
                     ],
                   ),
                 ),
