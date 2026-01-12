@@ -7,13 +7,10 @@ on:
         required: false
         type: boolean
         default: true
-    secrets:
-      # để dùng secrets của caller (secrets: inherit)
-      GITHUB_TOKEN:
-        required: false
   push:
     tags:
       - 'v*'
+
 env:
   IS_STABLE: ${{ !contains(github.ref, '-') }}
 
