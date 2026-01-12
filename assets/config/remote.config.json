@@ -2,7 +2,7 @@
     "_comment": "面板类型：xboard 或 v2board。切换此字段即可切换不同面板实现，无需修改代码 v2board 目前正在建设中",
     "panelType": "sspanel",
     "panels": {
-        "mihomo": [
+        "sspanel": [
             {
                 "url": "https://ss.fzpn.net",
                 "description": "自动生成的域名 - wujie"

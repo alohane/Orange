@@ -325,7 +325,10 @@ class DomainRacingService {
 
     if (testPath.isEmpty) {
       // 使用健康检查端点
-      return '$baseUrl/api/v1/guest/comm/config';
+      // return '$baseUrl/api/v1/guest/comm/config';
+      return '$baseUrl';
+
+
     } else {
       String path = testPath.startsWith('/') ? testPath : '/$testPath';
       return '$baseUrl$path';
