@@ -50,17 +50,17 @@ final List<RouteBase> routes = [
         ),
         
         // 在线客服分支
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/support',
-              name: 'support',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: OnlineSupportPage(),
-              ),
-            ),
-          ],
-        ),
+        // StatefulShellBranch(
+        //   routes: [
+        //     GoRoute(
+        //       path: '/support',
+        //       name: 'support',
+        //       pageBuilder: (context, state) => const NoTransitionPage(
+        //         child: OnlineSupportPage(),
+        //       ),
+        //     ),
+        //   ],
+        // ),
         
         // 邀请页面分支
         StatefulShellBranch(

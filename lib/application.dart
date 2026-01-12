@@ -244,7 +244,7 @@ class ApplicationState extends ConsumerState<Application> {
           builder: (_, ref, child) {
             // 初始化 WebSocket 自动连接器 - 监听登录状态并自动管理 WebSocket 连接
             // 这个 Provider 会在登录成功时自动连接,登出时自动断开
-            ref.watch(webSocketAutoConnectorProvider);
+            // ref.watch(webSocketAutoConnectorProvider);
 
             final locale =
                 ref.watch(appSettingProvider.select((state) => state.locale));
