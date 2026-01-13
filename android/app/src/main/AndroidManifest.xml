@@ -28,6 +28,7 @@
         android:banner="@mipmap/ic_banner"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true"
         android:label="Flclash">
         <activity
             android:name="com.follow.clash.MainActivity"
