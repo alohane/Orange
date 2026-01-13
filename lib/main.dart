@@ -1,17 +1,22 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
+import 'dart:ffi' as ffi;
 
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/tile.dart';
 import 'package:fl_clash/plugins/vpn.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/xboard/config/xboard_config.dart';
-import 'package:fl_clash/xboard/config/utils/config_file_loader.dart'; // 配置文件加载器
-import 'package:fl_clash/xboard/infrastructure/network/domain_racing_service.dart'; // 域名竞速服务
+import 'package:fl_clash/xboard/infrastructure/network/domain_racing_service.dart';
+
+// Storage + module initializer imports
+import 'package:fl_clash/xboard/services/storage/xboard_storage_service.dart';
+import 'package:fl_clash/xboard/config/core/module_initializer.dart';
+import 'package:fl_clash/xboard/infrastructure/storage/shared_prefs_storage.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,114 +25,138 @@ import 'clash/core.dart';
 import 'clash/lib.dart';
 import 'common/common.dart';
 import 'models/models.dart';
-import 'package:fl_clash/xboard/features/remote_task/remote_task_manager.dart'; // 导入远程任务管理器
+import 'package:fl_clash/xboard/features/remote_task/remote_task_manager.dart';
+import 'package:flutter_xboard_sdk/flutter_xboard_sdk.dart';
 
-import 'package:flutter_xboard_sdk/flutter_xboard_sdk.dart'; // 导入域名服务
-
-// 定义一个全局变量来持有 RemoteTaskManager 实例，方便在整个应用生命周期中访问和管理
 RemoteTaskManager? remoteTaskManager;
 
 Future<void> main() async {
   globalState.isService = false;
-  WidgetsFlutterBinding.ensureInitialized(); // 确保 Flutter 绑定已初始化
+  WidgetsFlutterBinding.ensureInitialized();
 
-  // 首先初始化XBoard配置模块和域名服务（必须在RemoteTaskManager之前）
+  // STEP 1: Initialize storage FIRST
+  await _initializeStorage();
+
+  // STEP 2: Initialize XBoard services (with cache support)
   await _initializeXBoardServices();
 
-  // 初始化 RemoteTaskManager - 非阻塞模式，失败不影响应用启动
+  // STEP 3: Initialize RemoteTaskManager
   try {
     remoteTaskManager = await RemoteTaskManager.create();
     if (remoteTaskManager != null) {
-      remoteTaskManager!.initialize(); // 初始化管理器
-      remoteTaskManager!.start(); // 启动 WebSocket 连接
+      remoteTaskManager!.initialize();
+      remoteTaskManager!.start();
       print('RemoteTaskManager 从配置初始化成功');
     } else {
-      print('警告: RemoteTaskManager 初始化失败 - 配置中未找到 WebSocket URL，应用将继续启动但远程任务功能不可用');
+      print('警告: RemoteTaskManager 初始化失败 - 配置中未找到 WebSocket URL');
     }
   } catch (e) {
-    print('警告: RemoteTaskManager 初始化异常: $e，应用将继续启动但远程任务功能不可用');
+    print('警告: RemoteTaskManager 初始化异常: $e');
     remoteTaskManager = null;
   }
 
+  // STEP 4: Initialize app
   final version = await system.version;
   await clashCore.preload();
   await globalState.initApp(version);
   await android?.init();
-  await window?.init(version); // 假设 window?.init(version) 是正确的调用
+  await window?.init(version);
   HttpOverrides.global = FlClashHttpOverrides();
 
-  // 注册 WidgetsBindingObserver 来监听应用生命周期事件
-  WidgetsBinding.instance.addObserver(AppLifecycleObserver());
+  // STEP 5: Register lifecycle observer
+  WidgetsBinding.instance.addObserver(_AppLifecycleObserver());
 
-  runApp(ProviderScope(
-    child: const Application(),
-  ));
+  // STEP 6: Run app
+  runApp(
+    const ProviderScope(
+      child: Application(),
+    ),
+  );
 }
 
-/// 加载安全配置（证书路径、UA、解密密钥等）
-Future<void> _loadSecurityConfig() async {
+/// Initialize storage service
+Future<void> _initializeStorage() async {
   try {
-    // 加载证书配置
-    final certConfig = await ConfigFileLoaderHelper.getCertificateConfig();
-    final certPath = certConfig['path'] as String?;
-    final certEnabled = certConfig['enabled'] as bool? ?? true;
-    
-    if (certEnabled && certPath != null && certPath.isNotEmpty) {
-      // 直接使用配置中的证书路径（已经是相对于项目根目录的完整路径）
-      DomainRacingService.setCertificatePath(certPath);
-      print('[Main] 证书路径配置: $certPath');
+    print('[Main] 初始化存储服务...');
+
+    final storageInterface = await SharedPrefsStorage.create();
+
+    final storageService = XBoardStorageService(storageInterface);
+
+    // ✅ DEBUG: Check if cache exists
+    final cachedConfig = await storageService.getRemoteConfigJson();
+    print('[Main] 缓存检查: ${cachedConfig.dataOrNull != null ? "有缓存" : "无缓存"}');
+    if (cachedConfig.dataOrNull != null) {
+      print('[Main] 缓存大小: ${cachedConfig.dataOrNull!.length} bytes');
     }
-    
-    // 其他安全配置可以在这里加载
-    // 如 UA、解密密钥等
-    
+
+    // CRITICAL: Inject storage BEFORE XBoardConfig.initialize
+    ModuleInitializer.setStorageService(storageService);
+
+    print('[Main] 存储服务初始化成功 (cache support enabled)');
   } catch (e) {
-    print('[Main] 加载安全配置失败（使用默认值）: $e');
+    print('[Main] 存储服务初始化失败: $e');
+    print('[Main] 应用将继续但无缓存支持');
   }
 }
 
-/// 初始化XBoard配置模块和域名服务
+/// Load security config (certificates, UA, etc.)
+Future<void> _loadSecurityConfig() async {
+  try {
+    final certConfig = await ConfigFileLoaderHelper.getCertificateConfig();
+    final certPath = certConfig['path'] as String?;
+    final certEnabled = certConfig['enabled'] as bool? ?? true;
+
+    if (certEnabled && certPath != null && certPath.isNotEmpty) {
+      DomainRacingService.setCertificatePath(certPath);
+      print('[Main] 证书路径配置: $certPath');
+    }
+  } catch (e) {
+    print('[Main] 加载安全配置失败: $e');
+  }
+}
+
+/// Initialize XBoard services
 Future<void> _initializeXBoardServices() async {
   try {
     print('[Main] 开始初始化XBoard配置模块...');
-    
-    // 1. 从配置文件加载配置（开源友好：用户只需修改 xboard.config.yaml）
+
+    // Load config from file
     final configSettings = await ConfigFileLoader.loadFromFile();
     print('[Main] 配置文件加载成功，Provider: ${configSettings.currentProvider}');
-    
-    // 2. 加载安全配置（UA、证书、解密密钥等）
+
+    // Load security config
     await _loadSecurityConfig();
     print('[Main] 安全配置加载成功');
-    
-    // 3. 初始化V2配置模块
+
+    // Initialize XBoardConfig (with cache support via injected storage)
     await XBoardConfig.initialize(settings: configSettings);
     print('[Main] XBoard配置模块初始化成功');
-    
-    // SDK 初始化已移至 xboardSdkProvider，由 Riverpod 统一管理
-    // 在 Application.initState 中会预热 SDK
+
     print('[Main] SDK 将在应用启动后由 xboardSdkProvider 初始化');
-    
   } catch (e) {
     print('[Main] XBoard服务初始化失败: $e');
-    // 没有域名就失败，不需要降级
     rethrow;
   }
 }
 
-
-// 创建一个 AppLifecycleObserver 类来处理应用生命周期事件
-class AppLifecycleObserver extends WidgetsBindingObserver {
+/// App lifecycle observer
+class _AppLifecycleObserver extends WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // 当应用被完全终止时（例如，从任务管理器中划掉），释放资源
     if (state == AppLifecycleState.detached) {
+      // Clean up resources when app is killed
       remoteTaskManager?.dispose();
-      XBoardSDK.instance.dispose(); // 释放SDK资源
-      print('应用生命周期状态改变: $state, 所有服务资源已释放。');
+      XBoardSDK.instance.dispose();
+      print('应用生命周期状态改变: $state, 所有服务资源已释放');
     }
   }
 }
+
+// ==========================================
+// Background Service Code (VPN service)
+// ==========================================
 
 @pragma('vm:entry-point')
 Future<void> _service(List<String> flags) async {
@@ -152,7 +181,7 @@ Future<void> _service(List<String> flags) async {
     final traffic = clashLibHandler.getTraffic();
     return json.encode({
       "title": clashLibHandler.getCurrentProfileName(),
-      "content": "$traffic"
+      "content": "$traffic",
     });
   };
 
@@ -164,6 +193,7 @@ Future<void> _service(List<String> flags) async {
       },
     ),
   );
+
   if (!quickStart) {
     _handleMainIpc(clashLibHandler);
   } else {
@@ -172,9 +202,11 @@ Future<void> _service(List<String> flags) async {
     app?.tip(appLocalizations.startVpn);
     final homeDirPath = await appPath.homeDirPath;
     final version = await system.version;
+
     final clashConfig = globalState.config.patchClashConfig.copyWith.tun(
       enable: true,
     );
+
     Future(() async {
       final profileId = globalState.config.currentProfileId;
       if (profileId == null) {
@@ -204,24 +236,38 @@ Future<void> _service(List<String> flags) async {
   }
 }
 
-_handleMainIpc(ClashLibHandler clashLibHandler) {
+void _handleMainIpc(ClashLibHandler clashLibHandler) {
   final sendPort = IsolateNameServer.lookupPortByName(mainIsolate);
   if (sendPort == null) {
     return;
   }
+
   final serviceReceiverPort = ReceivePort();
+
   serviceReceiverPort.listen((message) async {
-    final res = await clashLibHandler.invokeAction(message);
-    sendPort.send(res);
+    if (message == null) {
+      serviceReceiverPort.close();
+      return;
+    }
+
+    try {
+      final res = await clashLibHandler.invokeAction(message);
+      sendPort.send(res);
+    } catch (e) {
+      sendPort.send({'error': e.toString()});
+    }
   });
+
+  // Send service port to main isolate
   sendPort.send(serviceReceiverPort.sendPort);
-  final messageReceiverPort = ReceivePort();
-  clashLibHandler.attachMessagePort(
-    messageReceiverPort.sendPort.nativePort,
-  );
-  messageReceiverPort.listen((message) {
+
+  // Create a RawReceivePort for native FFI
+  final messageRawPort = RawReceivePort((message) {
     sendPort.send(message);
   });
+
+  // Attach using the SendPort's nativePort
+  clashLibHandler.attachMessagePort(messageRawPort.sendPort.nativePort);
 }
 
 @immutable

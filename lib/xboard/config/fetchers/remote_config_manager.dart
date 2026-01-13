@@ -59,18 +59,18 @@ class ConfigResult<T> {
 class MultiConfigResult {
   /// 重定向配置源结果
   final ConfigResult<Map<String, dynamic>> redirectResult;
-  
+
   /// Gitee配置源结果
   final ConfigResult<Map<String, dynamic>> giteeResult;
-  
+
   const MultiConfigResult({
     required this.redirectResult,
     required this.giteeResult,
   });
-  
+
   /// 是否有任何一个配置源成功
   bool get hasSuccess => redirectResult.isSuccess || giteeResult.isSuccess;
-  
+
   /// 获取第一个成功的配置数据
   Map<String, dynamic>? get firstSuccessfulData {
     if (redirectResult.isSuccess && redirectResult.data != null) {
@@ -81,7 +81,7 @@ class MultiConfigResult {
     }
     return null;
   }
-  
+
   /// 获取第一个成功的配置源名称
   String? get firstSuccessfulSource {
     if (redirectResult.isSuccess) return redirectResult.source;
@@ -95,7 +95,7 @@ class MultiConfigResult {
     if (giteeResult.isSuccess) return giteeResult;
     return null;
   }
-  
+
   @override
   String toString() {
     return 'MultiConfigResult{redirect: ${redirectResult.status}, gitee: ${giteeResult.status}}';
@@ -150,8 +150,8 @@ class RedirectConfigSource implements ConfigSource {
     IHttpClient? httpClient,
     required this.redirectUrl,
     Duration? timeout,
-  }) : _httpClient = httpClient ?? SimpleHttpClient(),
-       timeout = timeout ?? const Duration(seconds: 10);
+  })  : _httpClient = httpClient ?? SimpleHttpClient(),
+        timeout = timeout ?? const Duration(seconds: 10);
 
   @override
   String get sourceName => 'redirect';
@@ -167,16 +167,15 @@ class RedirectConfigSource implements ConfigSource {
 
       if (rawData == null || rawData.trim().isEmpty) {
         _logger.error('重定向配置源获取失败: 数据为空');
-        return ConfigResult.failure("重定向配置源获取失败", sourceName);
+        return ConfigResult.failure('重定向配置源获取失败', sourceName);
       }
 
       final jsonData = json.decode(rawData.trim()) as Map<String, dynamic>;
       _logger.info('重定向配置源获取成功');
       return ConfigResult.success(jsonData, sourceName);
-
     } catch (e) {
       _logger.error('重定向配置源异常', e);
-      return ConfigResult.failure("重定向配置源异常: ${e.toString()}", sourceName);
+      return ConfigResult.failure('重定向配置源异常: ${e.toString()}', sourceName);
     }
   }
 }
@@ -193,8 +192,8 @@ class GiteeConfigSource implements ConfigSource {
     required this.giteeUrl,
     required this.encryptionKeyBase64,
     Duration? timeout,
-  }) : _httpClient = httpClient ?? SimpleHttpClient(),
-       timeout = timeout ?? const Duration(seconds: 10);
+  })  : _httpClient = httpClient ?? SimpleHttpClient(),
+        timeout = timeout ?? const Duration(seconds: 10);
 
   @override
   String get sourceName => 'gitee';
@@ -208,19 +207,18 @@ class GiteeConfigSource implements ConfigSource {
       final encryptedData = await _httpClient.getString(giteeUrl, timeout: timeout);
 
       if (encryptedData == null) {
-        return ConfigResult.failure("Gitee配置源获取失败", sourceName);
+        return ConfigResult.failure('Gitee配置源获取失败', sourceName);
       }
 
       final decryptedConfig = await _decryptConfigData(encryptedData.trim());
 
       if (decryptedConfig == null) {
-        return ConfigResult.failure("Gitee配置源解密失败", sourceName);
+        return ConfigResult.failure('Gitee配置源解密失败', sourceName);
       }
 
       return ConfigResult.success(decryptedConfig, sourceName);
-
     } catch (e) {
-      return ConfigResult.failure("Gitee配置源异常: ${e.toString()}", sourceName);
+      return ConfigResult.failure('Gitee配置源异常: ${e.toString()}', sourceName);
     }
   }
 
@@ -239,7 +237,9 @@ class GiteeConfigSource implements ConfigSource {
 
       final nonce = encryptedBytes.sublist(0, nonceLength);
       final ciphertext = encryptedBytes.sublist(
-          nonceLength, encryptedBytes.length - tagLength);
+        nonceLength,
+        encryptedBytes.length - tagLength,
+      );
       final tag = encryptedBytes.sublist(encryptedBytes.length - tagLength);
 
       final key = Key(keyBytes);
@@ -280,7 +280,7 @@ class RemoteConfigSource {
 
       final uri = Uri.parse(url);
       final request = await client.getUrl(uri);
-      
+
       // 添加请求头
       if (headers != null) {
         headers!.forEach((key, value) {
@@ -289,11 +289,11 @@ class RemoteConfigSource {
       }
 
       final response = await request.close();
-      
+
       if (response.statusCode == 200) {
         final responseBody = await response.transform(utf8.decoder).join();
         final data = json.decode(responseBody) as Map<String, dynamic>;
-        
+
         client.close();
         return ConfigResult.success(data, name);
       } else {
@@ -316,20 +316,35 @@ class RemoteConfigManager {
   final Duration _retryDelay;
   final bool _enableConcurrentFetch;
 
+  // NEW: Cache callbacks
+  final Future<String?> Function()? loadCachedJson;
+  final Future<void> Function(String json)? persistCachedJson;
+  final Future<void> Function()? clearCachedJson;
+
   RemoteConfigManager({
     List<ConfigSource>? sources,
     int maxRetries = 3,
     Duration retryDelay = const Duration(seconds: 2),
     bool enableConcurrentFetch = true,
-  }) : _configSources = sources ?? _createDefaultSources(),
-       _maxRetries = maxRetries,
-       _retryDelay = retryDelay,
-       _enableConcurrentFetch = enableConcurrentFetch;
+    // NEW: Cache callback parameters
+    this.loadCachedJson,
+    this.persistCachedJson,
+    this.clearCachedJson,
+  })  : _configSources = sources ?? _createDefaultSources(),
+        _maxRetries = maxRetries,
+        _retryDelay = retryDelay,
+        _enableConcurrentFetch = enableConcurrentFetch;
 
   /// 从配置设置创建RemoteConfigManager
-  factory RemoteConfigManager.fromSettings(RemoteConfigSettings settings) {
+  factory RemoteConfigManager.fromSettings(
+    RemoteConfigSettings settings, {
+    // NEW: Optional cache callbacks
+    Future<String?> Function()? loadCachedJson,
+    Future<void> Function(String json)? persistCachedJson,
+    Future<void> Function()? clearCachedJson,
+  }) {
     final sources = <ConfigSource>[];
-    
+
     for (final sourceConfig in settings.sources) {
       switch (sourceConfig.name) {
         case 'redirect':
@@ -339,7 +354,8 @@ class RemoteConfigManager {
           ));
           break;
         case 'gitee':
-          if (sourceConfig.encryptionKey == null || sourceConfig.encryptionKey!.isEmpty) {
+          if (sourceConfig.encryptionKey == null ||
+              sourceConfig.encryptionKey!.isEmpty) {
             throw Exception('Gitee配置源必须提供 encryptionKey');
           }
           sources.add(GiteeConfigSource(
@@ -350,17 +366,60 @@ class RemoteConfigManager {
           break;
       }
     }
-    
+
     return RemoteConfigManager(
       sources: sources,
       maxRetries: settings.maxRetries,
       retryDelay: settings.retryDelay,
+      // Pass through callbacks
+      loadCachedJson: loadCachedJson,
+      persistCachedJson: persistCachedJson,
+      clearCachedJson: clearCachedJson,
     );
   }
 
   /// 创建默认配置源（空列表，必须从配置文件提供）
   static List<ConfigSource> _createDefaultSources() {
     return [];
+  }
+
+  /// NEW: Validate remote config structure (minimal check)
+  bool _isValidConfig(Map<String, dynamic> cfg) {
+    try {
+      // Check panelType
+      final panelType = cfg['panelType'];
+      if (panelType is! String || panelType.trim().isEmpty) {
+        return false;
+      }
+
+      // Check panels structure
+      final panels = cfg['panels'];
+      if (panels is! Map) {
+        return false;
+      }
+
+      // Check panels[panelType] exists and non-empty
+      final panelList = panels[panelType];
+      if (panelList is! List || panelList.isEmpty) {
+        return false;
+      }
+
+      // Check first item has non-empty url
+      final firstItem = panelList.first;
+      if (firstItem is! Map) {
+        return false;
+      }
+
+      final url = firstItem['url'];
+      if (url is! String || url.trim().isEmpty) {
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      _logger.error('Config validation error', e);
+      return false;
+    }
   }
 
   /// 从所有配置源获取配置
@@ -438,41 +497,96 @@ class RemoteConfigManager {
       (s) => s.sourceName == sourceName,
       orElse: () => throw ArgumentError('Unknown source: $sourceName'),
     );
-    
+
     return await _fetchWithRetry(source);
   }
 
-  /// 获取第一个可用的配置
+  /// UPDATED: 获取第一个可用的配置 with cache fallback
   Future<ConfigResult<Map<String, dynamic>>> fetchConfig() async {
+    _logger.info('Fetching remote config...');
+
+    // STEP 1: Try online sources
     final multiResult = await fetchAllConfigs();
-    
+
     if (multiResult.hasSuccess) {
-      return multiResult.firstSuccessful!;
-    } else {
-      return ConfigResult.failure(
-        'All config sources failed',
-        'all',
-      );
+      final ok = multiResult.firstSuccessful!;
+      // Validate structure
+      if (ok.data != null && _isValidConfig(ok.data!)) {
+        // Persist cache (best effort)
+        if (persistCachedJson != null) {
+          try {
+            await persistCachedJson!(jsonEncode(ok.data));
+          } catch (_) {}
+        }
+        return ok;
+      }
     }
+
+    // STEP 2: Fallback to cache
+    if (loadCachedJson != null) {
+      try {
+        final cached = await loadCachedJson!();
+
+        if (cached != null && cached.trim().isNotEmpty) {
+          // Parse JSON
+          final Map<String, dynamic> map;
+          try {
+            map = json.decode(cached) as Map<String, dynamic>;
+          } catch (e) {
+            _logger.error('Cache JSON parse failed', e);
+
+            // Clear corrupted cache (optional)
+            if (clearCachedJson != null) {
+              try {
+                await clearCachedJson!();
+              } catch (_) {}
+            }
+
+            return ConfigResult.failure('Cache parse failed', 'cache');
+          }
+
+          // Validate structure
+          if (_isValidConfig(map)) {
+            _logger.info('Using cached config (offline mode)');
+            return ConfigResult.success(map, 'cache');
+          } else {
+            // Invalid structure → optionally clear
+            if (clearCachedJson != null) {
+              try {
+                await clearCachedJson!();
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (e) {
+        _logger.error('Cache load failed', e);
+      }
+    }
+
+    // STEP 3: All failed
+    return ConfigResult.failure(
+      'All config sources failed and no valid cache',
+      'all',
+    );
   }
 
   /// 带重试的获取
   Future<ConfigResult<Map<String, dynamic>>> _fetchWithRetry(ConfigSource source) async {
     ConfigResult<Map<String, dynamic>>? lastResult;
-    
+
     for (int attempt = 0; attempt <= _maxRetries; attempt++) {
       lastResult = await source.fetchConfig();
-      
+
       if (lastResult.isSuccess) {
         return lastResult;
       }
-      
+
       // 如果不是最后一次尝试，等待后重试
       if (attempt < _maxRetries) {
         await Future.delayed(_retryDelay);
       }
     }
-    
+
     return lastResult!;
   }
 

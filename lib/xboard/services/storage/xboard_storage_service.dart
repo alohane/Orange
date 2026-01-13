@@ -27,6 +27,10 @@ class XBoardStorageService {
   static const String _savedEmailKey = 'xboard_saved_email';
   static const String _savedPasswordKey = 'xboard_saved_password';
   static const String _rememberPasswordKey = 'xboard_remember_password';
+  
+  // ✅ NEW: Remote config cache keys
+  static const String _remoteConfigJsonKey = 'xboard_remote_config_json';
+  static const String _remoteConfigFetchedAtKey = 'xboard_remote_config_fetched_at';
 
 
   Future<Result<bool>> saveUserEmail(String email) async {
@@ -77,7 +81,7 @@ class XBoardStorageService {
 
   Future<Result<bool>> saveDomainSubscription(DomainSubscription subscription) async {
     try {
-      final subscriptionJson = jsonEncode(subscription.toJson());
+      final subscriptionJson = jsonEncode(subscription. toJson());
       return await _storage.setString(_domainSubscriptionKey, subscriptionJson);
     } catch (e, stackTrace) {
       return Result.failure(XBoardStorageException(
@@ -85,14 +89,14 @@ class XBoardStorageService {
         operation: 'write',
         key: _domainSubscriptionKey,
         originalError: e,
-        stackTrace: stackTrace,
+        stackTrace:  stackTrace,
       ));
     }
   }
 
   Future<Result<DomainSubscription?>> getDomainSubscription() async {
     final result = await _storage.getString(_domainSubscriptionKey);
-    return result.when(
+    return result. when(
       success: (subscriptionJson) {
         if (subscriptionJson == null) return Result.success(null);
         try {
@@ -122,6 +126,8 @@ class XBoardStorageService {
       _storage.remove(_subscriptionInfoKey),
       _storage.remove(_domainUserKey),  // 清理领域模型
       _storage.remove(_domainSubscriptionKey),  // 清理领域模型
+      // ⚠️ NOTE: NOT clearing remote config cache! 
+      // Remote config is not user-specific
     ]);
     
     final allSuccess = results.every((r) => r.dataOrNull == true);
@@ -153,7 +159,7 @@ class XBoardStorageService {
     ]);
     
     final allSuccess = results.every((r) => r.dataOrNull == true);
-    return Result.success(allSuccess);
+    return Result. success(allSuccess);
   }
 
   Future<Result<Map<String, dynamic>>> getSavedCredentials() async {
@@ -162,16 +168,16 @@ class XBoardStorageService {
     final rememberResult = await _storage.getBool(_rememberPasswordKey);
     
     return Result.success({
-      'email': emailResult.dataOrNull,
-      'password': passwordResult.dataOrNull,
-      'rememberPassword': rememberResult.dataOrNull ?? false,
+      'email':  emailResult. dataOrNull,
+      'password': passwordResult. dataOrNull,
+      'rememberPassword': rememberResult.dataOrNull ??  false,
     });
   }
 
   // 便捷方法：获取单个保存的凭据字段
   Future<String?> getSavedEmail() async {
     final result = await _storage.getString(_savedEmailKey);
-    return result.dataOrNull;
+    return result. dataOrNull;
   }
 
   Future<String?> getSavedPassword() async {
@@ -181,7 +187,7 @@ class XBoardStorageService {
 
   Future<bool> getRememberPassword() async {
     final result = await _storage.getBool(_rememberPasswordKey);
-    return result.dataOrNull ?? false;
+    return result.dataOrNull ??  false;
   }
 
   Future<Result<bool>> clearSavedCredentials() async {
@@ -194,5 +200,65 @@ class XBoardStorageService {
     final allSuccess = results.every((r) => r.dataOrNull == true);
     return Result.success(allSuccess);
   }
-}
 
+  // ==========================================
+  // ✅ NEW: Remote Config Cache Methods
+  // ==========================================
+
+  /// Save remote config JSON to cache
+  Future<Result<bool>> saveRemoteConfigJson(String json) async {
+    try {
+      final results = await Future.wait([
+        _storage.setString(_remoteConfigJsonKey, json),
+        _storage.setString(
+          _remoteConfigFetchedAtKey, 
+          DateTime.now().toIso8601String(),
+        ),
+      ]);
+      return Result.success(results.every((r) => r.dataOrNull == true));
+    } catch (e) {
+      // No logger - just return success(false) to be non-blocking
+      return Result.success(false);
+    }
+  }
+
+  /// Get cached remote config JSON
+  Future<Result<String?>> getRemoteConfigJson() async {
+    try {
+      return await _storage.getString(_remoteConfigJsonKey);
+    } catch (e) {
+      // Non-blocking: return null on error
+      return Result.success(null);
+    }
+  }
+
+  /// Get cache fetch timestamp
+  Future<Result<DateTime? >> getRemoteConfigFetchedAt() async {
+    try {
+      final result = await _storage.getString(_remoteConfigFetchedAtKey);
+      return result.when(
+        success: (dateStr) {
+          if (dateStr == null) return Result.success(null);
+          final date = DateTime.tryParse(dateStr);
+          return Result.success(date);
+        },
+        failure: (e) => Result.success(null),
+      );
+    } catch (e) {
+      return Result.success(null);
+    }
+  }
+
+  /// Clear remote config cache (for corrupted data)
+  Future<Result<bool>> clearRemoteConfigCache() async {
+    try {
+      final results = await Future.wait([
+        _storage.remove(_remoteConfigJsonKey),
+        _storage.remove(_remoteConfigFetchedAtKey),
+      ]);
+      return Result.success(results.every((r) => r.dataOrNull == true));
+    } catch (e) {
+      return Result.success(false);
+    }
+  }
+}

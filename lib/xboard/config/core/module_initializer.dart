@@ -5,18 +5,19 @@ import '../parsers/configuration_parser.dart';
 import '../internal/xboard_config_accessor.dart';
 import '../services/online_support_service.dart';
 import '../../core/core.dart';
+import '../../services/storage/xboard_storage_service.dart';
 
-// 初始化文件级日志器
 final _logger = FileLogger('module_initializer.dart');
 
-/// 模块初始化器（内部类）
-/// 
-/// 负责初始化所有模块和依赖注入
-/// 注意：这个类不应该被外部直接使用，请使用XBoardConfig
 class ModuleInitializer {
   static bool _isInitialized = false;
 
-  /// 初始化模块
+  static XBoardStorageService? _storageService;
+
+  static void setStorageService(XBoardStorageService storage) {
+    _storageService = storage;
+  }
+
   static Future<void> initialize({ConfigSettings? settings}) async {
     if (_isInitialized) {
       _logger.warning('Module already initialized');
@@ -24,24 +25,20 @@ class ModuleInitializer {
     }
 
     final config = settings ?? const ConfigSettings();
-    
+
     try {
-      // 验证配置
       if (!config.validate()) {
         final errors = config.getValidationErrors();
         throw Exception('Invalid configuration: ${errors.join(', ')}');
       }
 
-      // 配置日志
       _configureLogger(config.log);
 
       _logger.info('Initializing XBoard Config Module V2');
       _logger.info('Current provider: ${config.currentProvider}');
 
-      // 注册服务
       await _registerServices(config);
 
-      // 标记为已初始化
       ServiceLocator.markInitialized();
       _isInitialized = true;
 
@@ -52,55 +49,65 @@ class ModuleInitializer {
     }
   }
 
-  /// 重置模块
   static void reset() {
     _logger.info('Resetting module');
     ServiceLocator.reset();
     _isInitialized = false;
+    _storageService = null;
   }
 
-  /// 检查是否已初始化
   static bool get isInitialized => _isInitialized;
 
-  /// 获取初始化状态
   static Map<String, dynamic> getInitializationStatus() {
     return {
       'initialized': _isInitialized,
       'serviceLocator': ServiceLocator.getStats(),
+      'hasStorageService': _storageService != null,
     };
   }
 
-  /// 配置日志
   static void _configureLogger(LogSettings logSettings) {
-    // 注意：新的XBoardLogger不再需要setEnabled和setMinLevel
-    // 日志始终启用，通过LoggerInterface控制输出
-    // 可以通过XBoardLogger.setLogger()来替换日志实现
     _logger.debug('Logger配置：${logSettings.level}');
   }
 
-  /// 注册服务
   static Future<void> _registerServices(ConfigSettings config) async {
     _logger.debug('Registering services');
 
-    // 注册配置设置
     ServiceLocator.registerSingleton<ConfigSettings>(config);
 
-    // 注册远程配置管理器
     ServiceLocator.registerLazySingleton<RemoteConfigManager>(() {
-      _logger.info('Creating RemoteConfigManager with ${config.remoteConfig.sources.length} sources');
-      return RemoteConfigManager.fromSettings(config.remoteConfig);
+      _logger.info(
+        'Creating RemoteConfigManager with ${config.remoteConfig.sources.length} sources',
+      );
+
+      if (_storageService != null) {
+        _logger.info('Cache support enabled');
+        return RemoteConfigManager.fromSettings(
+          config.remoteConfig,
+          loadCachedJson: () async {
+            _logger.debug('Loading cached config...');
+            final result = await _storageService!.getRemoteConfigJson();
+            return result.dataOrNull;
+          },
+          persistCachedJson: (json) async {
+            _logger.debug('Persisting config to cache...');
+            await _storageService!.saveRemoteConfigJson(json);
+          },
+          clearCachedJson: () async {
+            _logger.debug('Clearing config cache...');
+            await _storageService!.clearRemoteConfigCache();
+          },
+        );
+      } else {
+        _logger.warning('Cache support disabled (no storage service)');
+        return RemoteConfigManager.fromSettings(config.remoteConfig);
+      }
     });
 
-    // 本地配置功能已移除，只使用远程数据
-
-    // 缓存功能已移除，使用实时数据
-
-    // 注册配置解析器
     ServiceLocator.registerLazySingleton<ConfigurationParser>(() {
       return ConfigurationParser();
     });
 
-    // 注册配置访问器
     ServiceLocator.registerLazySingleton<XBoardConfigAccessor>(() {
       return XBoardConfigAccessor(
         remoteManager: ServiceLocator.get<RemoteConfigManager>(),
@@ -109,14 +116,16 @@ class ModuleInitializer {
       );
     });
 
-    // 注册在线客服服务
     ServiceLocator.registerLazySingleton<OnlineSupportService>(() {
       try {
         final accessor = ServiceLocator.get<XBoardConfigAccessor>();
         final configs = accessor.getOnlineSupportConfigs();
         return OnlineSupportService(configs);
       } catch (e) {
-        _logger.warning('Failed to initialize OnlineSupportService, using empty config', e);
+        _logger.warning(
+          'Failed to initialize OnlineSupportService, using empty config',
+          e,
+        );
         return OnlineSupportService([]);
       }
     });
@@ -124,7 +133,6 @@ class ModuleInitializer {
     _logger.debug('Services registered successfully');
   }
 
-  /// 预热服务
   static Future<void> warmUp() async {
     if (!_isInitialized) {
       throw StateError('Module not initialized');
@@ -133,30 +141,27 @@ class ModuleInitializer {
     _logger.info('Warming up services');
 
     try {
-      // 预热配置访问器
       final accessor = ServiceLocator.get<XBoardConfigAccessor>();
       await accessor.refreshConfiguration();
 
       _logger.info('Services warmed up successfully');
     } catch (e) {
       _logger.warning('Service warm-up failed', e);
-      // 不抛出异常，允许模块继续工作
     }
   }
 
-  /// 创建配置访问器实例
   static Future<XBoardConfigAccessor> createConfigAccessor({
     ConfigSettings? settings,
     bool autoWarmUp = true,
   }) async {
     await initialize(settings: settings);
-    
+
     final accessor = ServiceLocator.get<XBoardConfigAccessor>();
-    
+
     if (autoWarmUp) {
       await accessor.refreshConfiguration();
     }
-    
+
     return accessor;
   }
 }
