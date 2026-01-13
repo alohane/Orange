@@ -96,12 +96,12 @@ class AdaptiveShellLayout extends ConsumerWidget {
       
       return Scaffold(
         body: child,
-        bottomNavigationBar: hideBottomNav 
-            ? null 
-            : MobileNavigationBar(
-                selectedIndex: currentIndex,
-                onDestinationSelected: (index) => _onDestinationSelected(context, index, false),
-              ),
+        // bottomNavigationBar: hideBottomNav 
+        //     ? null 
+        //     : MobileNavigationBar(
+        //         selectedIndex: currentIndex,
+        //         onDestinationSelected: (index) => _onDestinationSelected(context, index, false),
+        //       ),
       );
     }
   }

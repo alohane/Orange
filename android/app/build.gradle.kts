@@ -24,7 +24,7 @@ val isRelease = mStoreFile.exists()
 
 android {
     namespace = "com.follow.clash"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "28.0.13004108"
 
     compileOptions {
