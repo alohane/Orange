@@ -9,16 +9,17 @@ xboard:
   remote_config:
     sources:
       # 主配置源（重定向服务）
-      - name: redirect
-        url: https://ss.fzpn.net/download/remote.config.json
-        priority: 100
+      # - name: redirect
+      #   url: https://ss.fzpn.net/download/remote.config.json
+      #   priority: 100
       
       # 备用配置源（Gitee加密源，可选）
-      # - name: gitee
-      #   url: https://gitee.com/your-username/your-repo/raw/branch/config.txt
-      #   priority: 90
-      #   encryption_key:  YOUR_BASE64_ENCODED_AES_KEY_HERE==
-      #   timeout_seconds: 3     # ← THÊM nếu bỏ comment
+      - name: gitee
+        # url: https://gitee.com/grokvalencia/flash/raw/master/remote.config.json2
+        url: https://ss.fzpn.net/download/remote.config.txt
+        priority: 90
+        encryption_key:  u5Jp60wmJqsAdRKpTNrRTqsvaFsgmg+jA5c5TfzjpOw=
+        timeout_seconds: 3     # ← THÊM nếu bỏ comment
 
     # ⚡ THÊM các dòng này (nếu chưa có):
     timeout_seconds: 5           # ← GIẢM từ 10 xuống 5
@@ -40,8 +41,12 @@ xboard:
 
   # 安全与加密配置
   security:
-    obfuscation_prefix: YOUR_OBFS_PREFIX_
+    obfuscation_prefix: fzpromax
     
     user_agents:
-      api_encrypted: Mozilla/5.0 (compatible; YOUR_ENCRYPTED_STRING_HERE)
+      api_encrypted: Mozilla/5.0 (compatible; fzpnvipprovipvalorant)
       domain_racing_test: FlClash/1.0 (Domain Racing Test)
+      
+    # certificate:
+    #   path: flutter_xboard_sdk/assets/cer/client-cert.crt
+    #   enabled: true
