@@ -31,14 +31,14 @@ jobs:
           # - platform: windows
           #   os: windows-11-arm
           #   arch: arm64
-          # - platform: macos
-          #   os: macos-13
-          #   arch: amd64
-          # - platform: macos
-          #   os: macos-latest
-          #   arch: arm64
-          - platform: android
-            os: ubuntu-latest
+          - platform: macos
+            os: macos-13
+            arch: amd64
+          - platform: macos
+            os: macos-latest
+            arch: arm64
+          # - platform: android
+          #   os: ubuntu-latest
           # - platform: linux
           #   os: ubuntu-22.04
           #   arch: amd64

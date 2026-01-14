@@ -9,13 +9,15 @@ xboard:
   remote_config:
     sources:
       # 主配置源（重定向服务）
-      # - name: redirect
-      #   url: https://ss.fzpn.net/download/remote.config.json
-      #   priority: 90
+      - name: redirect
+        url: https://ss.fzpn.net/download/remote.config.json
+        # url: https://tikflash.com/download/remote.config.json
+        priority: 90
       
       # 备用配置源（Gitee加密源，可选）
       - name: gitee
         url: https://gitee.com/grokvalencia/flash/raw/master/remote.config.json
+        # url: https://gitee.com/grokvalencia/flash/raw/master/tf.config.json
         priority: 100
         encryption_key:  u5Jp60wmJqsAdRKpTNrRTqsvaFsgmg+jA5c5TfzjpOw=
         timeout_seconds: 3     # ← THÊM nếu bỏ comment
